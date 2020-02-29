@@ -59,10 +59,8 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR) palloc_free_page(fn_copy);
   else{
     new_thread_tid = tid;
-
     /* Disable intr for thread_foreach */
     enum intr_level old = intr_disable();
-    
     thread_foreach(*check_tid, NULL);
     sema_down(&new_thread->load_sema);
     list_push_back(&thread_current()->children_list, &new_thread->child_elem);

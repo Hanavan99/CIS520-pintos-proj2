@@ -467,18 +467,21 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
-}
 
-#ifdef USERPROG
-/* initilaize new semas*/
-list_init(&t->children_list);
-list_init(&t->alive_sema);
-list_init(&t->load_sema);
+  list_init(&t->fd_list);
+  t->fd = 2;
+
+  #ifdef USERPROG
+  /* initilaize new semas*/
+  list_init(&t->children_list);
+  list_init(&t->alive_sema, 0);
+  list_init(&t->load_sema, 0);
 
 t->exit_status = -1;
 t_loaded = false;
 #endif
 
+}
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
 static void *

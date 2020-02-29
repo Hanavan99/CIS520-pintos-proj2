@@ -20,6 +20,10 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void check_tid (struct thread *t, void *aux UNUSED)
+
+static tid_t new_thread_tid;
+static struct thread* new_thread;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -37,13 +41,35 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
-  /* Create a new thread to execute FILE_NAME. */
+ 
+  /* Create a new thread to execute FILE_NAME. 
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
-}
+  */
+
+ char *save_ptr; 
+ char *program_name = strtok_r((char *)file_name, " ", &save_ptr);
+
+  if(program_name == NULL) return -1;
+
+  tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
+
+  if (tid == TID_ERROR) palloc_free_page(fn_copy);
+  else{
+    new_thread_tid = tid;
+
+    /* Disable intr for thread_foreach */
+    enum intr_level old = intr_disable();
+    
+    thread_foreach(*check_tid, NULL);
+    sema_down(&new_thread->load_sema);
+    list_push_back(&thread_current()->children_list, &new_thread->child_elem);
+    intr_set_level (old);
+  }
+  return tid;
+  }
 
 /* A thread function that loads a user process and starts it
    running. */

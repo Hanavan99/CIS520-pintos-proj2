@@ -478,7 +478,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->load_sema);
 
 t->exit_status = -1;
-t_loaded = false;
+t->loaded = false;
 #endif
 
 }

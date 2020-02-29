@@ -474,8 +474,8 @@ init_thread (struct thread *t, const char *name, int priority)
   #ifdef USERPROG
   /* initilaize new semas*/
   list_init(&t->children_list);
-  list_init(&t->alive_sema, 0);
-  list_init(&t->load_sema, 0);
+  list_init(&t->alive_sema);
+  list_init(&t->load_sema);
 
 t->exit_status = -1;
 t_loaded = false;

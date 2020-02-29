@@ -90,17 +90,13 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-    int exit_code;                      /* Exit code of the thread */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
+    
     struct list fd_list;
-
     int fd;
-
     struct semaphore load_sema;
-
     bool loaded;
 
 #ifdef USERPROG

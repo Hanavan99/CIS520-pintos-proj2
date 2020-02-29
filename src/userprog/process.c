@@ -22,6 +22,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void check_tid (struct thread *t, void *aux UNUSED)
 
+/* ID of newly created thread in process_execute */
 static tid_t new_thread_tid;
 static struct thread* new_thread;
 

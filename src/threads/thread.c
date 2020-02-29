@@ -469,6 +469,16 @@ init_thread (struct thread *t, const char *name, int priority)
   intr_set_level (old_level);
 }
 
+#ifdef USERPROG
+/* initilaize new semas*/
+list_init(&t->children_list);
+list_init(&t->alive_sema);
+list_init(&t->load_sema);
+
+t->exit_status = -1;
+t_loaded = false;
+#endif
+
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
    returns a pointer to the frame's base. */
 static void *

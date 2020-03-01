@@ -3,6 +3,14 @@
 
 #include "threads/thread.h"
 
+struct arguments{
+    char * programName;
+    char * programArguments;
+    tid_t programTid;
+    struct semaphore sema;
+    struct thread * childThread;
+}
+
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);
 void process_exit (void);

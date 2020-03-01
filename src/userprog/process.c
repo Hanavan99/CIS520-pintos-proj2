@@ -25,16 +25,17 @@ static void check_tid (struct thread *t, void *aux UNUSED)
 /* ID of newly created thread in process_execute */
 static tid_t new_thread_tid;
 static struct thread* new_thread;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char * file_name) 
 {
+  struct thread * cur = thread_current();
   char *fn_copy;
   tid_t tid;
+  struct arguments args;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -42,33 +43,28 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
- 
-  /* Create a new thread to execute FILE_NAME. 
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  args.programName = strtok_r(fn_copy, " ", &args.programName);
+  args.programTid = cur->tid;
+
+  /* Create a new thread to execute FILE_NAME. */
+  sema_init(&args.sema, 0);
+  tid = thread_create (args.programName, PRI_DEFAULT, start_process, &args);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-  return tid;
-  */
-
- char *save_ptr; 
- char *program_name = strtok_r((char *)file_name, " ", &save_ptr);
-
-  if(program_name == NULL) return -1;
-
-  tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
-
-  if (tid == TID_ERROR) palloc_free_page(fn_copy);
-  else{
-    new_thread_tid = tid;
-    /* Disable intr for thread_foreach */
-    enum intr_level old = intr_disable();
-    thread_foreach(*check_tid, NULL);
-    sema_down(&new_thread->load_sema);
-    list_push_back(&thread_current()->children_list, &new_thread->child_elem);
-    intr_set_level (old);
+    palloc_free_page (fn_copy);
+  if(tid != TID_ERROR){
+    sema_down(&args.sema);
+    if(args.childThread != NULL){
+      list_push_back(&cur->children_list, &args.childThread->childElem);
+    }
+    else
+    {
+      tid = TID_ERROR;
+    }
+    
   }
+  palloc_free_page(fn_copy);
   return tid;
-  }
+}
 
 /* A thread function that loads a user process and starts it
    running. */

@@ -3,13 +3,16 @@
 
 #include "threads/thread.h"
 
+#define INSTRUCTION_SIZE4 4
+#define RETURN_ERROR -1
+
 struct arguments{
     char * programName;
     char * programArguments;
     tid_t programTid;
     struct semaphore sema;
     struct thread * childThread;
-}
+};
 
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);

@@ -3,8 +3,17 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+#include "process.h"
 
 static void syscall_handler (struct intr_frame *);
+
+static bool
+get_int_arg (const uint8_t *uaddr, int pos, int *pi)
+{
+  return read_int (uaddr + sizeof (int) * pos, pi);
+}
 
 void
 syscall_init (void) 
@@ -22,13 +31,31 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_EXIT:
     {
-      int exit_code = *((int *) f->esp + 1);
-      thread_current()->exit_code = exit_code;
-      thread_exit();
+      int * ec = pagedir_get_page(thread_current()->pagedir, f->esp + INSTRUCTION_SIZE4);
+      if(ec == NULL){
+        exit(RETURN_ERROR);
+      }
+      exit(*(ec));
       break;
+    }
+    case SYS_WRITE:
+    {
+      
     }
     default:
       printf("Unhandled system call %d!\n", int_no);
       thread_exit();
   }
+}
+
+void exit (int status){
+  if(status == 0){
+    thread_current()->exit_status = 0;
+    printf("%s: exit(%i)\n", thread_current()->name, status);
+    thread_exit();
+  }
+
+  thread_current()->exit_status = status;
+  printf("%s: exit(%i)\n", thread_current()->name, status);
+  thread_exit();
 }

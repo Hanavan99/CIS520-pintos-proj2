@@ -20,7 +20,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static void check_tid (struct thread *t, void *aux UNUSED)
+//static void check_tid (struct thread *t, void *aux UNUSED)
 
 /* ID of newly created thread in process_execute */
 static tid_t new_thread_tid;
@@ -54,7 +54,7 @@ process_execute (const char * file_name)
   if(tid != TID_ERROR){
     sema_down(&args.sema);
     if(args.childThread != NULL){
-      list_push_back(&cur->children_list, &args.childThread->childElem);
+      list_push_back(&cur->children_list, &args.childThread->child_elem);
     }
     else
     {

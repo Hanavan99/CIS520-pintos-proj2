@@ -5,6 +5,14 @@
 #include <list.h>
 #include <stdint.h>
 
+#ifdef USERPROG
+struct thread_file {
+   struct list_elem file_elem;
+   struct file *file_addr;
+   int file_descriptor;
+};
+#endif
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -96,6 +104,9 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    int exit_code;
+    struct list file_descriptors;
+    int cur_fd;
 #endif
 
     /* Owned by thread.c. */

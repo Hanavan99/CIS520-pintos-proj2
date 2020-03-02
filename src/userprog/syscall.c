@@ -17,16 +17,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int int_no = *((int *) f->esp); // dereference stack pointer because arg0 is stored there
   switch (int_no) {
-    case SYS_HALT:
-      shutdown_power_off();
-      break;
-    case SYS_EXIT:
-    {
-      int exit_code = *((int *) f->esp + 1);
-      thread_current()->exit_code = exit_code;
-      thread_exit();
-      break;
-    }
+    
     default:
       printf("Unhandled system call %d!\n", int_no);
       thread_exit();

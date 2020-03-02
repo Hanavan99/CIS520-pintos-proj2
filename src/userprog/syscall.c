@@ -47,9 +47,7 @@ void sys_halt() {
 }
 
 void sys_exit(int exit_code) {
-  ASSERT(false);
   thread_current()->exit_code = exit_code;
-  printf ("%s: exit(%d)\n", thread_current()->name, exit_code);
   thread_exit();
 }
 

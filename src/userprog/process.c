@@ -30,7 +30,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-  printf("In process_execute(): %s\n", file_name);
+  
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -56,9 +56,6 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  char *saveptr;
-  file_name = strtok_r((char*)file_name," ", &saveptr);
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -66,15 +63,6 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-/*
-  if(success){
-    thread_current()->cp->load_status = LOADED;
-  }
-  else{
-    thread_current()->cp->load_status = LOAD_FAIL;
-  }
-  sema_up (&thread_current()->cp->load_sema);
-*/
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
@@ -453,33 +441,54 @@ setup_stack (void **esp, int argc, char *argv[])
 {
   uint8_t *kpage;
   bool success = false;
-
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
       {
-        *esp = PHYS_BASE;
-        uint32_t * stack_pointers[argc];
+        /* Stack initialization code insipired by the work of pindexis
+        (the full GitHub link of which is available in Design2.txt).
+        Mainly used to determine correct pointer types. */
+
+        /* Offset PHYS_BASE as instructed. */
+        *esp = PHYS_BASE - 12;
+        /* A list of addresses to the values that are intially added to the stack.  */
+        uint32_t * arg_value_pointers[argc];
+
+        /* First add all of the command line arguments in descending order, including
+           the program name. */
         for(int i = argc-1; i >= 0; i--)
         {
+          /* Allocate enough space for the entire string (plus and extra byte for
+             '/0'). Copy the string to the stack, and add its reference to the array
+              of pointers. */
           *esp = *esp - sizeof(char)*(strlen(argv[i])+1);
           memcpy(*esp, argv[i], sizeof(char)*(strlen(argv[i])+1));
-          stack_pointers[i] = (uint32_t *)*esp;
+          arg_value_pointers[i] = (uint32_t *)*esp;
         }
+        /* Allocate space for & add the null sentinel. */
         *esp = *esp - 4;
         (*(int *)(*esp)) = 0;
 
-        *esp = *esp -4;
+        /* Push onto the stack each char* in arg_value_pointers[] (each of which
+           references an argument that was previously added to the stack). */
+        *esp = *esp - 4;
         for(int i = argc-1; i >= 0; i--)
         {
-          (*(uint32_t **)(*esp)) = stack_pointers[i];
+          (*(uint32_t **)(*esp)) = arg_value_pointers[i];
           *esp = *esp - 4;
         }
+
+        /* Push onto the stack a pointer to the pointer of the address of the
+           first argument in the list of arguments. */
         (*(uintptr_t **)(*esp)) = *esp + 4;
+
+        /* Push onto the stack the number of program arguments. */
         *esp = *esp - 4;
         *(int *)(*esp) = argc;
+
+        /* Push onto the stack a fake return address, which completes stack initialization. */
         *esp = *esp - 4;
         (*(int *)(*esp)) = 0;
       }

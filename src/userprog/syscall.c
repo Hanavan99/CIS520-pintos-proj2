@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include <stdlib.h>
 
 static void syscall_handler (struct intr_frame *);
 
@@ -17,7 +18,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int int_no = *((int *) f->esp); // dereference stack pointer because arg0 is stored there
   switch (int_no) {
+<<<<<<< HEAD
     
+=======
+    case SYS_HALT:
+      shutdown_power_off();
+      break;
+    case SYS_EXIT:
+    {
+      get_stack_arguments(f, &args[0], 1);
+
+				/* We pass exit the status code of the process. */
+			exit(args[0]);
+      break;
+    }
+>>>>>>> 5455f65f02db675274e9f10762a7728aa0277b67
     default:
       printf("Unhandled system call %d!\n", int_no);
       thread_exit();

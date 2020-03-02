@@ -107,6 +107,9 @@ struct thread
     struct list_elem child_elem;
     int exit_status;
     struct semaphore alive_sema;
+
+    struct list files;
+    int next_fd;
 #endif
 
     /* Owned by thread.c. */

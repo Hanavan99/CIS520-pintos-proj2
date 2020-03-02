@@ -4,7 +4,6 @@
 #include "threads/thread.h"
 
 #define INSTRUCTION_SIZE4 4
-#define RETURN_ERROR -1
 
 struct arguments{
     char * programName;

@@ -47,6 +47,7 @@ void sys_halt() {
 }
 
 void sys_exit(int exit_code) {
+  ASSERT(false);
   thread_current()->exit_code = exit_code;
   printf ("%s: exit(%d)\n", thread_current()->name, exit_code);
   thread_exit();
@@ -183,7 +184,6 @@ int sys_write(int fd, const void * buffer, unsigned int size) {
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  ASSERT(false);
   int int_no;
   read_user_mem(f->esp, &int_no, sizeof(int_no)); // dereference stack pointer because arg0 is stored there
   switch (int_no) {

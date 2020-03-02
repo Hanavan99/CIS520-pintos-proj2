@@ -56,6 +56,8 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  char *saveptr;
+  file_name = strtok_r((char*)file_name," ", &saveptr);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -64,6 +66,15 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
+/*
+  if(success){
+    thread_current()->cp->load_status = LOADED;
+  }
+  else{
+    thread_current()->cp->load_status = LOAD_FAIL;
+  }
+  sema_up (&thread_current()->cp->load_sema);
+*/
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
@@ -90,10 +101,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  while(true)
-  {
-
-  }
+  while(true){ }
   return -1;
 }
 
@@ -452,7 +460,7 @@ setup_stack (void **esp, int argc, char *argv[])
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
       {
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
         uint32_t * stack_pointers[argc];
         for(int i = argc-1; i >= 0; i--)
         {
@@ -461,7 +469,6 @@ setup_stack (void **esp, int argc, char *argv[])
           stack_pointers[i] = (uint32_t *)*esp;
         }
         *esp = *esp - 4;
-        /* null sentinel */
         (*(int *)(*esp)) = 0;
 
         *esp = *esp -4;

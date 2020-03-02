@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include <stdlib.h>
 
 static void syscall_handler (struct intr_frame *);
 
@@ -22,9 +23,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_EXIT:
     {
-      int exit_code = *((int *) f->esp + 1);
-      thread_current()->exit_code = exit_code;
-      thread_exit();
+      get_stack_arguments(f, &args[0], 1);
+
+				/* We pass exit the status code of the process. */
+			exit(args[0]);
       break;
     }
     default:

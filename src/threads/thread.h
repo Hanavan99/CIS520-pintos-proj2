@@ -6,6 +6,14 @@
 #include <stdint.h>
 #include "synch.h"
 
+#ifdef USERPROG
+struct thread_file {
+   struct list_elem file_elem;
+   struct file *file_addr;
+   int file_descriptor;
+};
+#endif
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -102,6 +110,7 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+<<<<<<< HEAD
 
     struct list children_list;
     struct list_elem child_elem;
@@ -110,6 +119,11 @@ struct thread
 
     struct list files;
     int next_fd;
+=======
+    int exit_code;
+    struct list file_descriptors;
+    int cur_fd;
+>>>>>>> hanavan
 #endif
 
     /* Owned by thread.c. */

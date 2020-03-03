@@ -18,6 +18,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+static void find_tid (struct thread *t, void * aux);
+/* A global variable - the thread that we are looking for in the thread list (NULL if not found). */
+static struct thread * matching_thread;
+/* A global variable - the tid of the thread that we are looking for in the thread list (-1 if not found (set in functions)). */
+static tid_t current_tid;
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -30,7 +36,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-  
+
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -45,6 +51,16 @@ process_execute (const char *file_name)
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
+  else {
+    current_tid = tid;
+    enum intr_level old_level = intr_disable ();
+    thread_foreach(*find_tid, NULL);
+    list_push_front(&thread_current()->child_process_list, &matching_thread->child_elem);
+    //printf("Added thread %s %d\n", matching_thread->name, matching_thread->tid);
+    sema_down(&matching_thread->being_waited_on);
+    matching_thread->parent_thread = thread_current();
+    intr_set_level (old_level);
+  }
   return tid;
 }
 
@@ -89,8 +105,34 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED)
 {
-  while(true){ }
-  return -1;
+  struct list_elem * child_elem;
+  struct thread * child = NULL;
+
+  if (list_empty(&thread_current()->child_process_list)) {
+    printf("list empty\n");
+    return -1;
+  }
+
+  for (child_elem = list_front(&thread_current()->child_process_list); child_elem != list_end(&thread_current()->child_process_list); child_elem = child_elem->next) {
+    struct thread * tmp = list_entry(child_elem, struct thread, child_elem);
+    //printf("thread %s with id %d (%d)\n", tmp->name, tmp->tid, child_tid);
+    if (tmp->tid == child_tid) {
+      child = tmp;
+      break;
+    }
+  }
+
+  if (child == NULL) {
+    printf("child was null\n");
+    return -1;
+  }
+
+  list_remove(&child->child_elem);
+
+  //printf("waiting on thread %d\n", child->tid);
+  sema_down(&child->being_waited_on);
+  //printf("wait() returned\n");
+  return child->exit_code;
 }
 
 /* Free the current process's resources. */
@@ -516,4 +558,14 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+/* This function is passed to thread_foreach in order to find the thread
+   that matches a specific tid. */
+static void find_tid (struct thread *t, void * aux UNUSED)
+{
+  if(current_tid == t->tid)
+  {
+    matching_thread = t;
+  }
 }

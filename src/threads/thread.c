@@ -282,6 +282,10 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  // alert parent that we are dead
+  //printf("sema_up on thread %s (%d)\n", thread_current()->name, thread_current()->tid);
+  sema_up(&thread_current ()->being_waited_on);
+
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -463,6 +467,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  // initialize the waiting on semaphore
+  sema_init(&t->being_waited_on, 1);
+  list_init(&t->child_process_list);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

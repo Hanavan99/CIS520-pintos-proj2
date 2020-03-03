@@ -9,10 +9,13 @@
 #include "userprog/pagedir.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include "filesys/filesys.h"
 
 struct lock lock_filesys;
 
 static void syscall_handler (struct intr_frame *);
+
+static void sys_exit(int);
 
 void
 syscall_init (void) 
@@ -48,6 +51,7 @@ void sys_halt() {
 
 void sys_exit(int exit_code) {
   thread_current()->exit_code = exit_code;
+  printf ("%s: exit(%d)\n", thread_current()->name, exit_code);
   thread_exit();
 }
 

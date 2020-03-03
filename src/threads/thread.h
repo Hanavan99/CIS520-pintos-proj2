@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 #ifdef USERPROG
 struct thread_file {
@@ -107,6 +108,10 @@ struct thread
     int exit_code;
     struct list file_descriptors;
     int cur_fd;
+    struct list child_process_list;
+    struct list_elem child_elem;
+    struct semaphore being_waited_on;
+    struct thread * parent_thread;
 #endif
 
     /* Owned by thread.c. */

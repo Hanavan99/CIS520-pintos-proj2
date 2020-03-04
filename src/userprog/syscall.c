@@ -10,12 +10,15 @@
 #include "threads/synch.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/vaddr.h"
 
 struct lock lock_filesys;
 
 static void syscall_handler (struct intr_frame *);
 
 static void sys_exit(int);
+
+void* check_address(const void*);
 
 void
 syscall_init (void) 
@@ -55,8 +58,28 @@ void sys_exit(int exit_code) {
   thread_exit();
 }
 
-pid_t sys_exec(const char * cmd) {
-  return 0;
+int sys_exec (char *file_name)
+{
+	lock_acquire(&lock_filesys);
+	char * fn_cp = malloc (strlen(file_name)+1);
+	  strlcpy(fn_cp, file_name, strlen(file_name)+1);
+	  
+	  char * save_ptr;
+	  fn_cp = strtok_r(fn_cp," ",&save_ptr);
+
+	 struct file* f = filesys_open (fn_cp);
+
+	  if(f==NULL)
+	  {
+	  	lock_release(&lock_filesys);
+	  	return -1;
+	  }
+	  else
+	  {
+	  	file_close(f);
+	  	lock_release(&lock_filesys);
+	  	return process_execute(file_name);
+	  }
 }
 
 int sys_wait(pid_t pid) {
@@ -181,12 +204,35 @@ int sys_write(int fd, const void * buffer, unsigned int size) {
   return 0;
 }
 
+void* check_address(const void *vaddr)
+  {
+    if(!is_user_vaddr(vaddr))
+    {
+      //may need to change based on changed made to SYS_EXIT
+      sys_exit(-1);
+      return 0;
+    }
+
+    void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
+
+    if(!ptr)
+    {
+      //may need to change based on changed made to SYS_EXIT
+      sys_exit(-1);
+      return 0;
+    }
+
+    return ptr;
+  }
+
 // ---------- END OF SYSCALL HANDLERS ----------
 
 static void
 syscall_handler (struct intr_frame *f) 
 {
   int int_no;
+  int * a = f->esp;
+  check_address(a);
   read_user_mem(f->esp, &int_no, sizeof(int_no)); // dereference stack pointer because arg0 is stored there
   switch (int_no) {
     case SYS_HALT:
@@ -201,18 +247,15 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_EXEC:
       {
-        void * cmd;
-        read_user_mem(f->esp + 4, &cmd, sizeof(cmd));
-        int return_code = sys_exec((const char *) cmd);
-        f->eax = (uint32_t) return_code;
+        check_address(a+1);
+        check_address(*(a+1));
+        f->eax = sys_exec(*(a+1));
       }
       break;
     case SYS_WAIT:
       {
-        pid_t pid;
-        read_user_mem(f->esp + 4, &pid, sizeof(pid));
-        int return_code = sys_wait(pid);
-        f->eax = (uint32_t) return_code;
+        check_address(a+1);
+        f->eax = sys_wait(*(a+1));
       }
       break;
     case SYS_CREATE:

@@ -64,11 +64,19 @@ int sys_wait(pid_t pid) {
 }
 
 bool sys_create(const char * filename, unsigned int size) {
-  return false;
+
+  lock_acquire(&lock_filesys);
+  bool exit_code = filesys_create(filename, size);
+  lock_release(&lock_filesys);
+  return exit_code;
 }
 
 bool sys_remove(const char * filename) {
-  return false;
+
+  lock_acquire(&lock_filesys);
+  bool exit_code = filesys_remove(filename);
+  lock_release(&lock_filesys);
+  return exit_code;
 }
 
 int sys_open(const char * filename) {
@@ -190,7 +198,25 @@ unsigned int sys_tell(int fd) {
 }
 
 void sys_close(int fd) {
+  struct list_elem *temp;
 
+  lock_acquire(&lock_filesys);
+
+  /* Check to see if the given fd is open and owned by the current process. */
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        file_close(t);
+        list_remove(&(temp));
+        palloc_free_page(t);
+        lock_release(&lock_filesys);
+        break;
+      }
+  }
+
+  lock_release(&lock_filesys);
 }
 
 int sys_read(int fd, void * buffer, unsigned int size) {

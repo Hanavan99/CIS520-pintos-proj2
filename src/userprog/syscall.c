@@ -97,15 +97,96 @@ int sys_open(const char * filename) {
 }
 
 int sys_filesize(int fd) {
-  return 0;
+  struct list_elem *temp;
+
+  lock_acquire(&lock_filesys);
+
+  /* If there are no files associated with this thread, return -1 */
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return -1;
+  }
+
+  /* Check to see if the given fd is open and owned by the current process. If so, return
+     the length of the file. */
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        lock_release(&lock_filesys);
+        return (int) file_length(t->file_addr);
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  /* Return -1 if we can't find the file. */
+  return -1;
 }
 
 void sys_seek(int fd, unsigned int position) {
+/* list element to iterate the list of file descriptors. */
+  struct list_elem *temp;
 
+  lock_acquire(&lock_filesys);
+
+  /* If there are no files to seek through, then we immediately return. */
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return;
+  }
+
+  /* Look to see if the given fd is in our list of file_descriptors. IF so, then we
+     seek through the appropriate file. */
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        file_seek(t->file_addr, position);
+        lock_release(&lock_filesys);
+        return;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  /* If we can't seek, return. */
+  return;
 }
 
 unsigned int sys_tell(int fd) {
-  return 0;
+  /* list element to iterate the list of file descriptors. */
+  struct list_elem *temp;
+
+  lock_acquire(&lock_filesys);
+
+  /* If there are no files in our file_descriptors list, return immediately, */
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return -1;
+  }
+
+  /* Look to see if the given fd is in our list of file_descriptors. If so, then we
+     call file_tell() and return the position. */
+  for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
+  {
+      struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
+      if (t->file_descriptor == fd)
+      {
+        unsigned position = (unsigned) file_tell(t->file_addr);
+        lock_release(&lock_filesys);
+        return position;
+      }
+  }
+
+  lock_release(&lock_filesys);
+
+  return -1;
 }
 
 void sys_close(int fd) {

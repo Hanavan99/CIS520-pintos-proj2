@@ -469,8 +469,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   // initialize the waiting on semaphore
-  sema_init(&t->being_waited_on, 1);
+  sema_init(&t->being_waited_on, 0);
   list_init(&t->child_process_list);
+  list_init(&t->file_descriptors);
+
+  t->cur_fd = 2;
+  t->exit_code = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

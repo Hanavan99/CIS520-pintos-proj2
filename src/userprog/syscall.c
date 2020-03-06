@@ -10,12 +10,11 @@
 #include "threads/synch.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "threads/vaddr.h"
 
 struct lock lock_filesys;
 
 static void syscall_handler (struct intr_frame *);
-
-static void sys_exit(int);
 
 void
 syscall_init (void) 
@@ -28,7 +27,21 @@ syscall_init (void)
 // checks if a pointer is valid for the current thread
 bool check_pointer(void * ptr) {
   struct thread * t = thread_current();
+
+  if (!is_user_vaddr(ptr) || ptr == NULL || ptr < (void *) 0x08048000) {
+    sys_exit(-1);
+  }
+
   return pagedir_get_page(t->pagedir, ptr) != NULL;
+}
+
+bool check_string(char * str) {
+  //printf("checking str %c\n", *str);
+  while (check_pointer(str) && *str != 0) { // continue looping until we hit a null character
+    //printf("%c\n", *str);
+    str++;
+  }
+  return check_pointer(str) && *str == 0;
 }
 
 void read_user_mem(void * addr, void * dest, size_t size) {
@@ -55,8 +68,23 @@ void sys_exit(int exit_code) {
   thread_exit();
 }
 
-pid_t sys_exec(const char * cmd) {
-  return 0;
+pid_t sys_exec(const char * file_name) {
+  /* If a null file is passed in, return a -1. */
+	if(!file_name)
+	{
+		return -1;
+	}
+
+  // check to make sure the string is all within the process's memory
+  if (!check_string(file_name)) {
+    sys_exit(-1);
+  }
+
+  lock_acquire(&lock_filesys);
+  /* Get and return the PID of the process that is created. */
+	pid_t child_tid = process_execute(file_name);
+  lock_release(&lock_filesys);
+	return child_tid;
 }
 
 int sys_wait(pid_t pid) {
@@ -64,6 +92,7 @@ int sys_wait(pid_t pid) {
 }
 
 bool sys_create(const char * filename, unsigned int size) {
+<<<<<<< HEAD
 
   lock_acquire(&lock_filesys);
   bool exit_code = filesys_create(filename, size);
@@ -77,11 +106,39 @@ bool sys_remove(const char * filename) {
   bool exit_code = filesys_remove(filename);
   lock_release(&lock_filesys);
   return exit_code;
+=======
+  // check filename string
+  if (filename == NULL || !check_string(filename)) {
+    sys_exit(-1);
+  }
+
+  lock_acquire(&lock_filesys);
+  bool file_status = filesys_create(filename, size);
+  lock_release(&lock_filesys);
+  return file_status;
+}
+
+bool sys_remove(const char * filename) {
+  // check filename string
+  if (filename == NULL || !check_string(filename)) {
+    sys_exit(-1);
+  }
+
+  lock_acquire(&lock_filesys);
+  bool was_removed = filesys_remove(filename);
+  lock_release(&lock_filesys);
+  return was_removed;
+>>>>>>> origin/hanavan
 }
 
 int sys_open(const char * filename) {
   /* Make sure that only one process can get ahold of the file system at one time. */
   lock_acquire(&lock_filesys);
+
+  // check filename string
+  if (filename == NULL || !check_string(filename)) {
+    sys_exit(-1);
+  }
 
   struct file* f = filesys_open(filename);
 
@@ -198,30 +255,62 @@ unsigned int sys_tell(int fd) {
 }
 
 void sys_close(int fd) {
+<<<<<<< HEAD
+=======
+  /* list element to iterate the list of file descriptors. */
+>>>>>>> origin/hanavan
   struct list_elem *temp;
 
   lock_acquire(&lock_filesys);
 
+<<<<<<< HEAD
   /* Check to see if the given fd is open and owned by the current process. */
+=======
+  /* If there are no files in our file_descriptors list, return immediately, */
+  if (list_empty(&thread_current()->file_descriptors))
+  {
+    lock_release(&lock_filesys);
+    return;
+  }
+
+  /* Look to see if the given fd is in our list of file_descriptors. If so, then we
+     close the file and remove it from our list of file_descriptors. */
+>>>>>>> origin/hanavan
   for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
   {
       struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
       if (t->file_descriptor == fd)
       {
+<<<<<<< HEAD
         file_close(t);
         list_remove(&(temp));
         palloc_free_page(t);
         lock_release(&lock_filesys);
         break;
+=======
+        file_close(t->file_addr);
+        list_remove(&t->file_elem);
+        lock_release(&lock_filesys);
+        return;
+>>>>>>> origin/hanavan
       }
   }
 
   lock_release(&lock_filesys);
+<<<<<<< HEAD
+=======
+
+  return;
+>>>>>>> origin/hanavan
 }
 
 int sys_read(int fd, void * buffer, unsigned int size) {
   /* list element to iterate the list of file descriptors. */
   struct list_elem *temp;
+
+  if (!check_pointer(buffer)) {
+    sys_exit(-1);
+  }
 
   lock_acquire(&lock_filesys);
 
@@ -311,7 +400,7 @@ syscall_handler (struct intr_frame *f)
         void * cmd;
         read_user_mem(f->esp + 4, &cmd, sizeof(cmd));
         int return_code = sys_exec((const char *) cmd);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_WAIT:
@@ -319,7 +408,7 @@ syscall_handler (struct intr_frame *f)
         pid_t pid;
         read_user_mem(f->esp + 4, &pid, sizeof(pid));
         int return_code = sys_wait(pid);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_CREATE:
@@ -330,7 +419,7 @@ syscall_handler (struct intr_frame *f)
         read_user_mem(f->esp + 4, &filename, sizeof(filename));
         read_user_mem(f->esp + 8, &initial_size, sizeof(initial_size));
         return_code = sys_create(filename, initial_size);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_REMOVE:
@@ -339,7 +428,7 @@ syscall_handler (struct intr_frame *f)
         bool return_code;
         read_user_mem(f->esp + 4, &filename, sizeof(filename));
         return_code = sys_remove(filename);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_OPEN:
@@ -348,7 +437,7 @@ syscall_handler (struct intr_frame *f)
         int return_code;
         read_user_mem(f->esp + 4, &filename, sizeof(filename));
         return_code = sys_open(filename);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_FILESIZE:
@@ -356,7 +445,7 @@ syscall_handler (struct intr_frame *f)
         int fd, return_code;
         read_user_mem(f->esp + 4, &fd, sizeof(fd));
         return_code = sys_filesize(fd);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_READ:
@@ -367,7 +456,7 @@ syscall_handler (struct intr_frame *f)
         read_user_mem(f->esp + 4, &fd, sizeof(fd));
         read_user_mem(f->esp + 8, &buffer, sizeof(buffer));
         read_user_mem(f->esp + 12, &size, sizeof(size));
-        f->eax = (uint32_t) sys_read(fd, buffer, size);
+        f->eax = sys_read(fd, buffer, size);
       }
       break;
     case SYS_WRITE:
@@ -378,7 +467,7 @@ syscall_handler (struct intr_frame *f)
         read_user_mem(f->esp + 4, &fd, sizeof(fd));
         read_user_mem(f->esp + 8, &buffer, sizeof(buffer));
         read_user_mem(f->esp + 12, &size, sizeof(size));
-        f->eax = (uint32_t) sys_write(fd, buffer, size);
+        f->eax = sys_write(fd, buffer, size);
       }
       break;
     case SYS_SEEK:
@@ -396,7 +485,7 @@ syscall_handler (struct intr_frame *f)
         unsigned int return_code;
         read_user_mem(f->esp + 4, &fd, sizeof(fd));
         return_code = sys_tell(fd);
-        f->eax = (uint32_t) return_code;
+        f->eax = return_code;
       }
       break;
     case SYS_CLOSE:

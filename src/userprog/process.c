@@ -57,7 +57,7 @@ process_execute (const char *file_name)
     thread_foreach(*find_tid, NULL);
     list_push_front(&thread_current()->child_process_list, &matching_thread->child_elem);
     //printf("Added thread %s %d\n", matching_thread->name, matching_thread->tid);
-    sema_down(&matching_thread->being_waited_on);
+    //sema_down(&matching_thread->being_waited_on);
     matching_thread->parent_thread = thread_current();
     intr_set_level (old_level);
   }
@@ -109,13 +109,14 @@ process_wait (tid_t child_tid UNUSED)
   struct thread * child = NULL;
 
   if (list_empty(&thread_current()->child_process_list)) {
-    printf("list empty\n");
+    //printf("list empty\n");
     return -1;
   }
 
-  for (child_elem = list_front(&thread_current()->child_process_list); child_elem != list_end(&thread_current()->child_process_list); child_elem = child_elem->next) {
+  for (child_elem = list_front(&thread_current()->child_process_list); child_elem != NULL; child_elem = child_elem->next) {
     struct thread * tmp = list_entry(child_elem, struct thread, child_elem);
     //printf("thread %s with id %d (%d)\n", tmp->name, tmp->tid, child_tid);
+    //printf("thread %d with exit_code %d\n", tmp->tid, tmp->exit_code);
     if (tmp->tid == child_tid) {
       child = tmp;
       break;
@@ -123,15 +124,17 @@ process_wait (tid_t child_tid UNUSED)
   }
 
   if (child == NULL) {
-    printf("child was null\n");
+    //printf("child was null\n");
     return -1;
   }
 
   list_remove(&child->child_elem);
 
   //printf("waiting on thread %d\n", child->tid);
+  //printf("before %d\n", child->exit_code);
   sema_down(&child->being_waited_on);
-  //printf("wait() returned\n");
+  //printf("after %d\n", child->exit_code);
+  //printf("sema_down() returned, exit code %d\n", child->exit_code);
   return child->exit_code;
 }
 

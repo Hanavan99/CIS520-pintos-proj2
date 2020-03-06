@@ -55,7 +55,14 @@ process_execute (const char *file_name)
     current_tid = tid;
     enum intr_level old_level = intr_disable ();
     thread_foreach(*find_tid, NULL);
+    //printf("scheduled\n");
     list_push_front(&thread_current()->child_process_list, &matching_thread->child_elem);
+
+    // check if the thread failed to initialize
+    //sema_down(&thread_current()->init_failed);
+    if (thread_current()->tid == TID_ERROR) {
+      return -1;
+    }
     //printf("Added thread %s %d\n", matching_thread->name, matching_thread->tid);
     //sema_down(&matching_thread->being_waited_on);
     matching_thread->parent_thread = thread_current();
@@ -81,8 +88,13 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success)
+  if (!success) {
+    thread_current()->tid = TID_ERROR;
+    printf("failed\n");
+    sema_up(&thread_current()->init_failed);
     thread_exit ();
+  }
+  sema_up(&thread_current()->init_failed);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -133,9 +145,11 @@ process_wait (tid_t child_tid UNUSED)
   //printf("waiting on thread %d\n", child->tid);
   //printf("before %d\n", child->exit_code);
   sema_down(&child->being_waited_on);
+  int exit_code = child->exit_code;
+  sema_up(&child->ready_to_die);
   //printf("after %d\n", child->exit_code);
   //printf("sema_down() returned, exit code %d\n", child->exit_code);
-  return child->exit_code;
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -288,6 +302,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done;
     }
 
+  // deny write to the executible
+  thread_current()->exe_file = file;
+  file_deny_write(file);
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -371,7 +389,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if (!success) {
+    file_close (file);
+  }
   return success;
 }
 

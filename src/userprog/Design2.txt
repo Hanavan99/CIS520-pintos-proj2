@@ -1,0 +1,284 @@
+﻿+--------------------------+
+|         CIS 520          |
+                           | PROJECT 2: USER PROGRAMS |
+                           |     DESIGN DOCUMENT      |
+                           +--------------------------+
+
+
+---- GROUP ----
+
+
+>> Fill in the names of your group members.
+
+
+Hanavan Kuhn
+Charles Swisher
+Charles Tryban
+
+
+---- PRELIMINARIES ----
+
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+
+The “multi-oom” test never terminates, so we had to comment it out so that the rest of the tests run. With it commented out we had 6 of 79 tests failing.
+
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+
+https://static1.squarespace.com/static/5b18aa0955b02c1de94e4412/t/5b85fad2f950b7b16b7a2ed6/1535507195196/Pintos+Guide
+https://github.com/ChristianJHughes/pintos-project2/
+https://github.com/Waqee/Pintos-Project-2
+https://github.com/rpwilliams/CIS520_Proj2/
+
+
+                           ARGUMENT PASSING
+                           ================
+
+
+---- DATA STRUCTURES ----
+
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+
+thread.h
+        //int exit_code :: code manipulated to tell the thread when to exit.
+        //struct list file_descriptors :: a list that holds each thread’s files and a description.
+        //struct list child_process_list :: holds all children of a program.
+        //struct list_elem child_elem :: the list elements held in the child_process_list
+        //struct semaphore being_waited_on :: a semaphore used to control if a child thread is being waited on or not.
+        //struct thread * parent_thread :: thread to keep track of the child’s parent thread
+
+
+---- ALGORITHMS ----
+
+
+>> A2: Briefly describe how you implemented argument parsing.  How do
+>> you arrange for the elements of argv[] to be in the right order?
+>> How do you avoid overflowing the stack page?
+
+
+Argument parsing was handled with strtok_r to tokenize the argument, and parse it into the filename, and the other arguments by using a whitespace delimiter. List_push_pront was used to ensure that arguments were tracked in the proper order. Palloc_free_page is used to free pages that we no longer need in order to preserve space on the stack and avoid stack overflows.
+
+
+---- RATIONALE ----
+
+
+>> A3: Why does Pintos implement strtok_r() but not strtok()?
+
+
+_r has an additional argument used to save the position of the token. This allows it to be safe for threads which is vital for pintos. _r is a reentrant version of strtok.
+
+
+>> A4: In Pintos, the kernel separates commands into an executable name
+>> and arguments.  In Unix-like systems, the shell does this
+>> separation.  Identify at least two advantages of the Unix approach.
+
+
+By having the shell handle this task, the kernel is protected from receiving bad input from the user. This also takes a process off of the kernel’s plate, making the kernel code simpler.
+
+
+                             SYSTEM CALLS
+                             ============
+
+
+---- DATA STRUCTURES ----
+
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+
+The fields we added to the thread struct in thread.h:
+
+
+int exit_code;        
+Variable for tracking exit code of a thread. Several 
+Different functions need to know the status of how a thread will 
+terminate and this variable is used to track it.
+struct list file_descriptors;
+        List of file descriptors associated with the current thread. Used 
+to check if we have access to a file and can write/use it.
+int cur_fd;
+        The current value of the counter for file descriptors. When 
+opening a file we add the file descriptor to a the list and 
+increment the counter.
+struct list child_process_list;
+        List of process a thread has created. Used in process_wait and 
+process_execute to determine if a thread is a process of another thread and helps to determine if a process needs to wait on a child thread.
+struct list_elem child_elem;
+        List element for the child_process_list.
+struct semaphore being_waited_on;
+        Sema to tell if a thread is waiting on another.
+struct thread * parent_thread;
+        The thread that created us. We use matching_thread to store the 
+child thread and set the child’s value of the parent_thread to thread_current in process_execute.
+
+
+Struct thread_file we created in thread.h:
+
+
+struct list_elem file_elem;
+        List element to keep track of the information for a thread to be 
+able to easily access a files information.
+struct file *file_addr;
+        File that has been opened by the specific thread.
+int file_descriptor;
+        File descriptor for a specific file.
+
+
+>> B2: Describe how file descriptors are associated with open files.
+>> Are file descriptors unique within the entire OS or just within a
+>> single process?
+
+
+File descriptors are tracked on a per-process basis, and a single file descriptor is associated with a single file, except in the case of stdin and stdout which have their own special file descriptors.
+
+
+---- ALGORITHMS ----
+
+
+>> B3: Describe your code for reading and writing user data from the
+>> kernel.
+
+
+Our code utilizes a function called get_user_mem() that allows the reading of user memory, which is used especially in the syscall handler to read the user’s arguments off of the stack.
+
+
+>> B4: Suppose a system call causes a full page (4,096 bytes) of data
+>> to be copied from user space into the kernel.  What is the least
+>> and the greatest possible number of inspections of the page table
+>> (e.g. calls to pagedir_get_page()) that might result?  What about
+>> for a system call that only copies 2 bytes of data?  Is there room
+>> for improvement in these numbers, and how much?
+
+
+In theory, if the 4kB of data fits exactly in one page, then only one call to pagedir_get_page() would be needed. If the data is spanning two pages, which is much more likely, than you would need at least two calls to pagedir_get_page() to find the other page to read from. Even with 2 bytes of data, if one byte is in one page and another byte is in another page, still two calls to pagedir_get_page() are needed. Therefore, a minimum of 1 call is needed, but a maximum of 2 calls are needed.
+
+
+>> B5: Briefly describe your implementation of the "wait" system call
+>> and how it interacts with process termination.
+
+
+The wait system call utilizes two semaphores to signal between the waiting thread and the thread that is terminating to make sure the exit code can be obtained without memory access issues. The thread that is terminating first calls sema_up() on a semaphore which allows the parent thread to be notified that the thread is terminating. Then the parent thread examines the exit code of the child thread, and calls sema_up() on another semaphore that notifies the child thread that it can uninstall the memory pages and do cleanup.
+
+
+>> B6: Any access to user program memory at a user-specified address
+>> can fail due to a bad pointer value.  Such accesses must cause the
+>> process to be terminated.  System calls are fraught with such
+>> accesses, e.g. a "write" system call requires reading the system
+>> call number from the user stack, then each of the call's three
+>> arguments, then an arbitrary amount of user memory, and any of
+>> these can fail at any point.  This poses a design and
+>> error-handling problem: how do you best avoid obscuring the primary
+>> function of code in a morass of error-handling?  Furthermore, when
+>> an error is detected, how do you ensure that all temporarily
+>> allocated resources (locks, buffers, etc.) are freed?  In a few
+>> paragraphs, describe the strategy or strategies you adopted for
+>> managing these issues.  Give an example.
+
+
+The type of code required to handle an error depends on the error itself. If the error occurs when reading a file, the file may not need to be closed if, for example, the user passed in an invalid file descriptor. If the user passed in a valid file descriptor, but they reached the end of the file, then it might require the file to be closed since the user has reached the end.
+
+
+One way we solved this was to check each issue in order based on severity. If the user passes a null pointer to read() but gives a valid file descriptor, the file doesn’t need to be closed, so this can be handled by just returning an error code, and therefore can be checked relatively early in the function. If the user tries to open a file that does not exist, the file system lock will be currently held by the kernel, and will need to be released before the syscall returns.
+
+
+---- SYNCHRONIZATION ----
+
+
+>> B7: The "exec" system call returns -1 if loading the new executable
+>> fails, so it cannot return before the new executable has completed
+>> loading.  How does your code ensure this?  How is the load
+>> success/failure status passed back to the thread that calls "exec"?
+
+
+Our tests for this part of the project do not pass, but in theory it can be implemented by using a semaphore so that exec() does not return until the thread has been initialized. If the thread fails to load the executable or fails to initialize for any other reason, it can call sema_up() on a semaphore so that the parent process can examine the child’s state to return a proper error code.
+
+
+>> B8: Consider parent process P with child process C.  How do you
+>> ensure proper synchronization and avoid race conditions when P
+>> calls wait(C) before C exits?  After C exits?  How do you ensure
+>> that all resources are freed in each case?  How about when P
+>> terminates without waiting, before C exits?  After C exits?  Are
+>> there any special cases?
+
+
+We used semaphores to make sure that the child and the parent are synchronized with each other and the parent doesn’t return from wait() until the child actually has terminated completely. The exact implementation is described in question B5.
+
+
+---- RATIONALE ----
+
+
+>> B9: Why did you choose to implement access to user memory from the
+>> kernel in the way that you did?
+
+
+We chose to implement it the way we did because writing a function to access user memory seemed easier and more straightforward than the other options.
+
+
+>> B10: What advantages or disadvantages can you see to your design
+>> for file descriptors?
+
+
+An advantage to our design with file descriptors is that it isolates the kernel data structures from the user so that from a security standpoint the data is more secure.
+
+
+>> B11: The default tid_t to pid_t mapping is the identity mapping.
+>> If you changed it, what advantages are there to your approach?
+
+
+We did not change the pid_t and tid_t implementation.
+
+
+                           SURVEY QUESTIONS
+                           ================
+
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+
+This entire project took much longer than we feel is necessary or normal for a 3 credit hour course, especially for a random middle of the semester project. We spent over 30 hours individually and together as a team and were still unable to get 100% completion of the tests.
+
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+
+There is no doubt that working in that actual OS helped gain insight into the OS design.
+
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+
+The squarespace website listed in our resources was very helpful and could have been provided from the beginning. The things provided were not misleading but some more stuff to lead us in the right direction would be appreciated.
+
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+
+
+
+
+
+>> Any other comments?

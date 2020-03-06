@@ -282,10 +282,13 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  // close the file that we loaded our executible from
+  file_close(thread_current()->exe_file);
+
   // alert parent that we are dead
   //printf("sema_up on thread %s (%d)\n", thread_current()->name, thread_current()->tid);
   sema_up(&thread_current ()->being_waited_on);
-
+  sema_down(&thread_current ()->ready_to_die);
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -470,6 +473,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   // initialize the waiting on semaphore
   sema_init(&t->being_waited_on, 0);
+  sema_init(&t->ready_to_die, 0);
+  sema_init(&t->init_failed, 0);
   list_init(&t->child_process_list);
   list_init(&t->file_descriptors);
 

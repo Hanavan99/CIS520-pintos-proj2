@@ -111,7 +111,10 @@ struct thread
     struct list child_process_list;
     struct list_elem child_elem;
     struct semaphore being_waited_on;
+    struct semaphore ready_to_die;
+    struct semaphore init_failed;
     struct thread * parent_thread;
+    struct file * exe_file;
 #endif
 
     /* Owned by thread.c. */

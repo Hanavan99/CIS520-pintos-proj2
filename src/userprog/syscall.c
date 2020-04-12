@@ -92,21 +92,6 @@ int sys_wait(pid_t pid) {
 }
 
 bool sys_create(const char * filename, unsigned int size) {
-<<<<<<< HEAD
-
-  lock_acquire(&lock_filesys);
-  bool exit_code = filesys_create(filename, size);
-  lock_release(&lock_filesys);
-  return exit_code;
-}
-
-bool sys_remove(const char * filename) {
-
-  lock_acquire(&lock_filesys);
-  bool exit_code = filesys_remove(filename);
-  lock_release(&lock_filesys);
-  return exit_code;
-=======
   // check filename string
   if (filename == NULL || !check_string(filename)) {
     sys_exit(-1);
@@ -128,7 +113,6 @@ bool sys_remove(const char * filename) {
   bool was_removed = filesys_remove(filename);
   lock_release(&lock_filesys);
   return was_removed;
->>>>>>> origin/hanavan
 }
 
 int sys_open(const char * filename) {
@@ -255,17 +239,11 @@ unsigned int sys_tell(int fd) {
 }
 
 void sys_close(int fd) {
-<<<<<<< HEAD
-=======
   /* list element to iterate the list of file descriptors. */
->>>>>>> origin/hanavan
   struct list_elem *temp;
 
   lock_acquire(&lock_filesys);
 
-<<<<<<< HEAD
-  /* Check to see if the given fd is open and owned by the current process. */
-=======
   /* If there are no files in our file_descriptors list, return immediately, */
   if (list_empty(&thread_current()->file_descriptors))
   {
@@ -275,33 +253,21 @@ void sys_close(int fd) {
 
   /* Look to see if the given fd is in our list of file_descriptors. If so, then we
      close the file and remove it from our list of file_descriptors. */
->>>>>>> origin/hanavan
   for (temp = list_front(&thread_current()->file_descriptors); temp != NULL; temp = temp->next)
   {
       struct thread_file *t = list_entry (temp, struct thread_file, file_elem);
       if (t->file_descriptor == fd)
       {
-<<<<<<< HEAD
-        file_close(t);
-        list_remove(&(temp));
-        palloc_free_page(t);
-        lock_release(&lock_filesys);
-        break;
-=======
         file_close(t->file_addr);
         list_remove(&t->file_elem);
         lock_release(&lock_filesys);
         return;
->>>>>>> origin/hanavan
       }
   }
 
   lock_release(&lock_filesys);
-<<<<<<< HEAD
-=======
 
   return;
->>>>>>> origin/hanavan
 }
 
 int sys_read(int fd, void * buffer, unsigned int size) {
